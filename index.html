@@ -1,0 +1,1254 @@
+import React, { useState, useEffect } from 'react';
+import { Camera, QrCode, Users, Calendar, Gift, FileText, School, Clock, Wifi, Download, Upload, CheckCircle, XCircle, Award, Settings, LogOut, UserCircle, Menu, X } from 'lucide-react';
+
+const SchoolAttendanceSystem = () => {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentView, setCurrentView] = useState('login');
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  
+  // Dados do sistema
+  const [schools, setSchools] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [absenceJustifications, setAbsenceJustifications] = useState([]);
+  const [rewards, setRewards] = useState([]);
+  const [rewardRedemptions, setRewardRedemptions] = useState([]);
+
+  // Estados de formulários
+  const [schoolForm, setSchoolForm] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    wifiSSID: '',
+    wifiPassword: ''
+  });
+
+  const [studentForm, setStudentForm] = useState({
+    name: '',
+    email: '',
+    class: '',
+    registration: ''
+  });
+
+  const [classForm, setClassForm] = useState({
+    name: '',
+    teacher: '',
+    schedule: '',
+    startTime: '',
+    endTime: '',
+    days: []
+  });
+
+  const [rewardForm, setRewardForm] = useState({
+    name: '',
+    description: '',
+    points: 0,
+    quantity: 0
+  });
+
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [scanningMode, setScanningMode] = useState(false);
+
+  // Inicializar dados de exemplo
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        const storedSchools = await window.storage.get('schools');
+        const storedStudents = await window.storage.get('students');
+        const storedStaff = await window.storage.get('staff');
+        const storedClasses = await window.storage.get('classes');
+        const storedAttendance = await window.storage.get('attendance');
+        const storedJustifications = await window.storage.get('justifications');
+        const storedRewards = await window.storage.get('rewards');
+        const storedRedemptions = await window.storage.get('redemptions');
+
+        if (storedSchools) setSchools(JSON.parse(storedSchools.value));
+        if (storedStudents) setStudents(JSON.parse(storedStudents.value));
+        if (storedStaff) setStaff(JSON.parse(storedStaff.value));
+        if (storedClasses) setClasses(JSON.parse(storedClasses.value));
+        if (storedAttendance) setAttendance(JSON.parse(storedAttendance.value));
+        if (storedJustifications) setAbsenceJustifications(JSON.parse(storedJustifications.value));
+        if (storedRewards) setRewards(JSON.parse(storedRewards.value));
+        if (storedRedemptions) setRewardRedemptions(JSON.parse(storedRedemptions.value));
+      } catch (error) {
+        console.log('Inicializando sistema pela primeira vez');
+      }
+    };
+
+    initData();
+  }, []);
+
+  // Salvar dados
+  const saveData = async () => {
+    try {
+      await window.storage.set('schools', JSON.stringify(schools));
+      await window.storage.set('students', JSON.stringify(students));
+      await window.storage.set('staff', JSON.stringify(staff));
+      await window.storage.set('classes', JSON.stringify(classes));
+      await window.storage.set('attendance', JSON.stringify(attendance));
+      await window.storage.set('justifications', JSON.stringify(absenceJustifications));
+      await window.storage.set('rewards', JSON.stringify(rewards));
+      await window.storage.set('redemptions', JSON.stringify(rewardRedemptions));
+    } catch (error) {
+      console.error('Erro ao salvar dados:', error);
+    }
+  };
+
+  useEffect(() => {
+    saveData();
+  }, [schools, students, staff, classes, attendance, absenceJustifications, rewards, rewardRedemptions]);
+
+  // Funções de autenticação
+  const handleLogin = (email, password, type) => {
+    if (type === 'student') {
+      const student = students.find(s => s.email === email);
+      if (student) {
+        setCurrentUser({ ...student, type: 'student' });
+        setCurrentView('student-dashboard');
+        return true;
+      }
+    } else if (type === 'staff') {
+      const staffMember = staff.find(s => s.email === email);
+      if (staffMember) {
+        setCurrentUser({ ...staffMember, type: 'staff' });
+        setCurrentView('staff-dashboard');
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setCurrentView('login');
+  };
+
+  // Cadastrar escola
+  const handleSchoolRegistration = () => {
+    const newSchool = {
+      id: Date.now().toString(),
+      ...schoolForm,
+      createdAt: new Date().toISOString()
+    };
+    setSchools([...schools, newSchool]);
+    
+    // Criar usuário admin da escola
+    const adminUser = {
+      id: Date.now().toString() + '-admin',
+      schoolId: newSchool.id,
+      name: 'Administrador',
+      email: schoolForm.email,
+      role: 'admin',
+      createdAt: new Date().toISOString()
+    };
+    setStaff([...staff, adminUser]);
+    
+    alert('Escola cadastrada com sucesso!');
+    setSchoolForm({
+      name: '',
+      address: '',
+      phone: '',
+      email: '',
+      wifiSSID: '',
+      wifiPassword: ''
+    });
+    setCurrentView('login');
+  };
+
+  // Cadastrar aluno
+  const handleStudentRegistration = () => {
+    const newStudent = {
+      id: Date.now().toString(),
+      ...studentForm,
+      schoolId: currentUser.schoolId,
+      points: 0,
+      createdAt: new Date().toISOString()
+    };
+    setStudents([...students, newStudent]);
+    alert('Aluno cadastrado com sucesso!');
+    setStudentForm({
+      name: '',
+      email: '',
+      class: '',
+      registration: ''
+    });
+  };
+
+  // Cadastrar turma
+  const handleClassRegistration = () => {
+    const newClass = {
+      id: Date.now().toString(),
+      ...classForm,
+      schoolId: currentUser.schoolId,
+      createdAt: new Date().toISOString()
+    };
+    setClasses([...classes, newClass]);
+    alert('Turma cadastrada com sucesso!');
+    setClassForm({
+      name: '',
+      teacher: '',
+      schedule: '',
+      startTime: '',
+      endTime: '',
+      days: []
+    });
+  };
+
+  // Gerar QR Code para aula
+  const generateQRCode = (classId) => {
+    const qrData = {
+      classId,
+      timestamp: Date.now(),
+      schoolId: currentUser.schoolId,
+      validUntil: Date.now() + (15 * 60 * 1000) // 15 minutos
+    };
+    setQrCodeData(qrData);
+  };
+
+  // Registrar presença
+  const handleAttendance = (qrData) => {
+    const schoolData = schools.find(s => s.id === currentUser.schoolId);
+    
+    // Simular verificação de WiFi (em produção, isso seria feito no backend)
+    const isOnSchoolWifi = true; // Simulado
+    
+    if (!isOnSchoolWifi) {
+      alert('Você precisa estar conectado ao WiFi da escola!');
+      return;
+    }
+
+    if (Date.now() > qrData.validUntil) {
+      alert('QR Code expirado!');
+      return;
+    }
+
+    const newAttendance = {
+      id: Date.now().toString(),
+      studentId: currentUser.id,
+      classId: qrData.classId,
+      timestamp: new Date().toISOString(),
+      status: 'present'
+    };
+
+    setAttendance([...attendance, newAttendance]);
+
+    // Adicionar pontos
+    const updatedStudents = students.map(s => 
+      s.id === currentUser.id ? { ...s, points: (s.points || 0) + 10 } : s
+    );
+    setStudents(updatedStudents);
+    setCurrentUser({ ...currentUser, points: (currentUser.points || 0) + 10 });
+
+    alert('Presença registrada! +10 pontos');
+    setScanningMode(false);
+  };
+
+  // Justificar falta
+  const handleJustification = (reason, attachment) => {
+    const newJustification = {
+      id: Date.now().toString(),
+      studentId: currentUser.id,
+      reason,
+      attachment,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    setAbsenceJustifications([...absenceJustifications, newJustification]);
+    alert('Justificativa enviada para análise!');
+  };
+
+  // Cadastrar prêmio
+  const handleRewardRegistration = () => {
+    const newReward = {
+      id: Date.now().toString(),
+      ...rewardForm,
+      schoolId: currentUser.schoolId,
+      createdAt: new Date().toISOString()
+    };
+    setRewards([...rewards, newReward]);
+    alert('Prêmio cadastrado com sucesso!');
+    setRewardForm({
+      name: '',
+      description: '',
+      points: 0,
+      quantity: 0
+    });
+  };
+
+  // Resgatar prêmio
+  const handleRewardRedemption = (rewardId) => {
+    const reward = rewards.find(r => r.id === rewardId);
+    
+    if (currentUser.points < reward.points) {
+      alert('Pontos insuficientes!');
+      return;
+    }
+
+    if (reward.quantity <= 0) {
+      alert('Prêmio esgotado!');
+      return;
+    }
+
+    const redemption = {
+      id: Date.now().toString(),
+      studentId: currentUser.id,
+      rewardId,
+      points: reward.points,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    setRewardRedemptions([...rewardRedemptions, redemption]);
+
+    // Atualizar pontos e quantidade
+    const updatedStudents = students.map(s =>
+      s.id === currentUser.id ? { ...s, points: s.points - reward.points } : s
+    );
+    setStudents(updatedStudents);
+    setCurrentUser({ ...currentUser, points: currentUser.points - reward.points });
+
+    const updatedRewards = rewards.map(r =>
+      r.id === rewardId ? { ...r, quantity: r.quantity - 1 } : r
+    );
+    setRewards(updatedRewards);
+
+    alert('Prêmio resgatado! Retire na secretaria.');
+  };
+
+  // Exportar relatório
+  const exportAttendanceReport = () => {
+    const report = attendance.map(a => {
+      const student = students.find(s => s.id === a.studentId);
+      const classInfo = classes.find(c => c.id === a.classId);
+      return {
+        Aluno: student?.name,
+        Matrícula: student?.registration,
+        Turma: classInfo?.name,
+        Data: new Date(a.timestamp).toLocaleDateString('pt-BR'),
+        Hora: new Date(a.timestamp).toLocaleTimeString('pt-BR'),
+        Status: a.status === 'present' ? 'Presente' : 'Ausente'
+      };
+    });
+
+    const csv = [
+      Object.keys(report[0]).join(','),
+      ...report.map(row => Object.values(row).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio_presenca_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  // Tela de Login
+  const LoginView = () => {
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [loginType, setLoginType] = useState('student');
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-full mb-4">
+              <School className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800">Sistema de Presença</h1>
+            <p className="text-gray-600 mt-2">Gestão inteligente de frequência escolar</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setLoginType('student')}
+                className={`flex-1 py-2 rounded-lg font-medium transition ${
+                  loginType === 'student'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                Aluno
+              </button>
+              <button
+                onClick={() => setLoginType('staff')}
+                className={`flex-1 py-2 rounded-lg font-medium transition ${
+                  loginType === 'staff'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                Equipe
+              </button>
+            </div>
+
+            <input
+              type="email"
+              placeholder="Email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+            <input
+              type="password"
+              placeholder="Senha"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+            <button
+              onClick={() => handleLogin(loginEmail, loginPassword, loginType)}
+              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition"
+            >
+              Entrar
+            </button>
+
+            <div className="text-center">
+              <button
+                onClick={() => setCurrentView('register-school')}
+                className="text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Cadastrar nova escola
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Tela de Cadastro de Escola
+  const RegisterSchoolView = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-8">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Cadastro de Escola</h2>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Nome da Escola"
+              value={schoolForm.name}
+              onChange={(e) => setSchoolForm({ ...schoolForm, name: e.target.value })}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              value={schoolForm.email}
+              onChange={(e) => setSchoolForm({ ...schoolForm, email: e.target.value })}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <input
+            type="text"
+            placeholder="Endereço Completo"
+            value={schoolForm.address}
+            onChange={(e) => setSchoolForm({ ...schoolForm, address: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          />
+
+          <input
+            type="tel"
+            placeholder="Telefone"
+            value={schoolForm.phone}
+            onChange={(e) => setSchoolForm({ ...schoolForm, phone: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          />
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Wifi className="w-5 h-5 text-blue-600" />
+              <h3 className="font-semibold text-gray-800">Configuração de WiFi</h3>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Nome da Rede (SSID)"
+                value={schoolForm.wifiSSID}
+                onChange={(e) => setSchoolForm({ ...schoolForm, wifiSSID: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+              <input
+                type="password"
+                placeholder="Senha do WiFi"
+                value={schoolForm.wifiPassword}
+                onChange={(e) => setSchoolForm({ ...schoolForm, wifiPassword: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="text-sm text-gray-600">
+                O WiFi será usado para validar a presença dos alunos
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleSchoolRegistration}
+              className="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition"
+            >
+              Cadastrar Escola
+            </button>
+            <button
+              onClick={() => setCurrentView('login')}
+              className="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition"
+            >
+              Voltar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Dashboard do Aluno
+  const StudentDashboard = () => (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <School className="w-8 h-8 text-indigo-600" />
+              <span className="text-xl font-bold text-gray-800">Painel do Aluno</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg">
+                <Award className="w-5 h-5 text-indigo-600" />
+                <span className="font-bold text-indigo-600">{currentUser.points || 0} pontos</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Olá, {currentUser.name}!</h1>
+          <p className="text-gray-600">Matrícula: {currentUser.registration}</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Card de Presença */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <QrCode className="w-6 h-6 text-indigo-600" />
+              Registrar Presença
+            </h2>
+
+            {!scanningMode ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-100 rounded-full mb-4">
+                  <Camera className="w-10 h-10 text-indigo-600" />
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Aponte a câmera para o QR Code da aula
+                </p>
+                <button
+                  onClick={() => setScanningMode(true)}
+                  className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-indigo-700 transition"
+                >
+                  Escanear QR Code
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="bg-gray-100 rounded-lg p-8 mb-4">
+                  <Camera className="w-16 h-16 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600">Câmera ativa - Aponte para o QR Code</p>
+                </div>
+                <button
+                  onClick={() => {
+                    // Simular leitura de QR Code
+                    if (qrCodeData) {
+                      handleAttendance(qrCodeData);
+                    } else {
+                      alert('Nenhum QR Code disponível no momento');
+                      setScanningMode(false);
+                    }
+                  }}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 mr-2"
+                >
+                  Simular Leitura
+                </button>
+                <button
+                  onClick={() => setScanningMode(false)}
+                  className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+
+            {/* Histórico de Presença */}
+            <div className="mt-8">
+              <h3 className="font-bold text-gray-800 mb-4">Histórico de Presença</h3>
+              <div className="space-y-2">
+                {attendance
+                  .filter(a => a.studentId === currentUser.id)
+                  .slice(-5)
+                  .reverse()
+                  .map(a => {
+                    const classInfo = classes.find(c => c.id === a.classId);
+                    return (
+                      <div key={a.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          <div>
+                            <p className="font-medium text-gray-800">{classInfo?.name || 'Aula'}</p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(a.timestamp).toLocaleDateString('pt-BR')} às{' '}
+                              {new Date(a.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-green-600 font-bold">+10 pts</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Card de Prêmios */}
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Gift className="w-5 h-5 text-indigo-600" />
+                Prêmios Disponíveis
+              </h3>
+              <div className="space-y-3">
+                {rewards
+                  .filter(r => r.schoolId === currentUser.schoolId && r.quantity > 0)
+                  .slice(0, 3)
+                  .map(reward => (
+                    <div key={reward.id} className="border border-gray-200 rounded-lg p-3">
+                      <h4 className="font-medium text-gray-800">{reward.name}</h4>
+                      <p className="text-sm text-gray-600 mb-2">{reward.description}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-indigo-600 font-bold">{reward.points} pts</span>
+                        <button
+                          onClick={() => handleRewardRedemption(reward.id)}
+                          disabled={currentUser.points < reward.points}
+                          className={`px-3 py-1 rounded text-sm font-medium ${
+                            currentUser.points >= reward.points
+                              ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          Resgatar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              <button
+                onClick={() => setCurrentView('student-rewards')}
+                className="w-full mt-4 text-indigo-600 font-medium hover:text-indigo-700"
+              >
+                Ver todos os prêmios
+              </button>
+            </div>
+
+            {/* Card de Justificativa */}
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                Justificar Falta
+              </h3>
+              <button
+                onClick={() => setCurrentView('justify-absence')}
+                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition"
+              >
+                Enviar Justificativa
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Dashboard da Equipe
+  const StaffDashboard = () => {
+    const [activeTab, setActiveTab] = useState('overview');
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <nav className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center gap-3">
+                <School className="w-8 h-8 text-indigo-600" />
+                <span className="text-xl font-bold text-gray-800">Painel da Equipe</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              >
+                <LogOut className="w-5 h-5" />
+                Sair
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">Olá, {currentUser.name}!</h1>
+            <p className="text-gray-600">Cargo: {currentUser.role}</p>
+          </div>
+
+          {/* Tabs */}
+          <div className="bg-white rounded-xl shadow-sm mb-6">
+            <div className="flex overflow-x-auto">
+              {[
+                { id: 'overview', label: 'Visão Geral', icon: Calendar },
+                { id: 'students', label: 'Alunos', icon: Users },
+                { id: 'classes', label: 'Turmas', icon: Clock },
+                { id: 'qrcode', label: 'Gerar QR Code', icon: QrCode },
+                { id: 'rewards', label: 'Prêmios', icon: Gift },
+                { id: 'reports', label: 'Relatórios', icon: Download }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <tab.icon className="w-5 h-5" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Conteúdo das Tabs */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            {activeTab === 'overview' && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-6">Visão Geral</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <Users className="w-8 h-8 text-blue-600 mb-2" />
+                    <p className="text-sm text-gray-600">Total de Alunos</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {students.filter(s => s.schoolId === currentUser.schoolId).length}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <CheckCircle className="w-8 h-8 text-green-600 mb-2" />
+                    <p className="text-sm text-gray-600">Presenças Hoje</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {attendance.filter(a => 
+                        new Date(a.timestamp).toDateString() === new Date().toDateString()
+                      ).length}
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <Clock className="w-8 h-8 text-purple-600 mb-2" />
+                    <p className="text-sm text-gray-600">Turmas Ativas</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {classes.filter(c => c.schoolId === currentUser.schoolId).length}
+                    </p>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <Gift className="w-8 h-8 text-orange-600 mb-2" />
+                    <p className="text-sm text-gray-600">Prêmios Ativos</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {rewards.filter(r => r.schoolId === currentUser.schoolId && r.quantity > 0).length}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-bold text-gray-800 mb-4">Justificativas Pendentes</h3>
+                    <div className="space-y-3">
+                      {absenceJustifications
+                        .filter(j => j.status === 'pending')
+                        .slice(0, 5)
+                        .map(justification => {
+                          const student = students.find(s => s.id === justification.studentId);
+                          return (
+                            <div key={justification.id} className="border border-gray-200 rounded-lg p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <p className="font-medium text-gray-800">{student?.name}</p>
+                                  <p className="text-sm text-gray-600">
+                                    {new Date(justification.createdAt).toLocaleDateString('pt-BR')}
+                                  </p>
+                                </div>
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                                  Pendente
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-3">{justification.reason}</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    const updated = absenceJustifications.map(j =>
+                                      j.id === justification.id ? { ...j, status: 'approved' } : j
+                                    );
+                                    setAbsenceJustifications(updated);
+                                  }}
+                                  className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700"
+                                >
+                                  Aprovar
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const updated = absenceJustifications.map(j =>
+                                      j.id === justification.id ? { ...j, status: 'rejected' } : j
+                                    );
+                                    setAbsenceJustifications(updated);
+                                  }}
+                                  className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm hover:bg-red-700"
+                                >
+                                  Rejeitar
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {absenceJustifications.filter(j => j.status === 'pending').length === 0 && (
+                        <p className="text-gray-500 text-center py-8">Nenhuma justificativa pendente</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-gray-800 mb-4">Resgates Pendentes</h3>
+                    <div className="space-y-3">
+                      {rewardRedemptions
+                        .filter(r => r.status === 'pending')
+                        .slice(0, 5)
+                        .map(redemption => {
+                          const student = students.find(s => s.id === redemption.studentId);
+                          const reward = rewards.find(r => r.id === redemption.rewardId);
+                          return (
+                            <div key={redemption.id} className="border border-gray-200 rounded-lg p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <p className="font-medium text-gray-800">{student?.name}</p>
+                                  <p className="text-sm text-gray-600">{reward?.name}</p>
+                                </div>
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                                  Pendente
+                                </span>
+                              </div>
+                              <p className="text-sm text-indigo-600 font-bold mb-3">
+                                {redemption.points} pontos
+                              </p>
+                              <button
+                                onClick={() => {
+                                  const updated = rewardRedemptions.map(r =>
+                                    r.id === redemption.id ? { ...r, status: 'completed' } : r
+                                  );
+                                  setRewardRedemptions(updated);
+                                  alert('Resgate concluído!');
+                                }}
+                                className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm hover:bg-indigo-700"
+                              >
+                                Marcar como Entregue
+                              </button>
+                            </div>
+                          );
+                        })}
+                      {rewardRedemptions.filter(r => r.status === 'pending').length === 0 && (
+                        <p className="text-gray-500 text-center py-8">Nenhum resgate pendente</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'students' && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-800">Gerenciar Alunos</h2>
+                </div>
+
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-bold text-gray-800 mb-4">Cadastrar Novo Aluno</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <input
+                      type="text"
+                      placeholder="Nome Completo"
+                      value={studentForm.name}
+                      onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={studentForm.email}
+                      onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Matrícula"
+                      value={studentForm.registration}
+                      onChange={(e) => setStudentForm({ ...studentForm, registration: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <select
+                      value={studentForm.class}
+                      onChange={(e) => setStudentForm({ ...studentForm, class: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Selecione a Turma</option>
+                      {classes.filter(c => c.schoolId === currentUser.schoolId).map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleStudentRegistration}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700"
+                  >
+                    Cadastrar Aluno
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nome</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Matrícula</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Turma</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Pontos</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {students
+                        .filter(s => s.schoolId === currentUser.schoolId)
+                        .map(student => {
+                          const classInfo = classes.find(c => c.id === student.class);
+                          return (
+                            <tr key={student.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-800">{student.name}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{student.registration}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{student.email}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{classInfo?.name || '-'}</td>
+                              <td className="px-4 py-3 text-sm font-bold text-indigo-600">
+                                {student.points || 0}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'classes' && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-6">Gerenciar Turmas</h2>
+
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-bold text-gray-800 mb-4">Cadastrar Nova Turma</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <input
+                      type="text"
+                      placeholder="Nome da Turma (ex: 3º Ano A)"
+                      value={classForm.name}
+                      onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Professor Responsável"
+                      value={classForm.teacher}
+                      onChange={(e) => setClassForm({ ...classForm, teacher: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="time"
+                      placeholder="Horário de Início"
+                      value={classForm.startTime}
+                      onChange={(e) => setClassForm({ ...classForm, startTime: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="time"
+                      placeholder="Horário de Término"
+                      value={classForm.endTime}
+                      onChange={(e) => setClassForm({ ...classForm, endTime: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button
+                    onClick={handleClassRegistration}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700"
+                  >
+                    Cadastrar Turma
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {classes
+                    .filter(c => c.schoolId === currentUser.schoolId)
+                    .map(classItem => (
+                      <div key={classItem.id} className="border border-gray-200 rounded-lg p-4">
+                        <h3 className="font-bold text-gray-800 mb-2">{classItem.name}</h3>
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <p>Professor: {classItem.teacher}</p>
+                          <p>Horário: {classItem.startTime} - {classItem.endTime}</p>
+                          <p>
+                            Alunos: {students.filter(s => s.class === classItem.id).length}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'qrcode' && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-6">Gerar QR Code para Aula</h2>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Selecione a Turma
+                    </label>
+                    <select
+                      onChange={(e) => generateQRCode(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Escolha uma turma</option>
+                      {classes.filter(c => c.schoolId === currentUser.schoolId).map(c => (
+                        <option key={c.id} value={c.id}>{c.name} - {c.teacher}</option>
+                      ))}
+                    </select>
+
+                    {qrCodeData && (
+                      <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          <span className="font-medium text-green-800">QR Code Gerado!</span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Válido até: {new Date(qrCodeData.validUntil).toLocaleTimeString('pt-BR')}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Os alunos têm 15 minutos para registrar presença
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-center">
+                    {qrCodeData ? (
+                      <div className="text-center">
+                        <div className="bg-white p-8 rounded-lg shadow-lg inline-block mb-4">
+                          <div className="w-64 h-64 bg-gray-900 flex items-center justify-center">
+                            <QrCode className="w-48 h-48 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Mostre este QR Code para os alunos escanearem
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400">
+                        <QrCode className="w-32 h-32 mx-auto mb-4" />
+                        <p>Selecione uma turma para gerar o QR Code</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'rewards' && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-6">Gerenciar Prêmios</h2>
+
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-bold text-gray-800 mb-4">Cadastrar Novo Prêmio</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <input
+                      type="text"
+                      placeholder="Nome do Prêmio"
+                      value={rewardForm.name}
+                      onChange={(e) => setRewardForm({ ...rewardForm, name: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Pontos Necessários"
+                      value={rewardForm.points}
+                      onChange={(e) => setRewardForm({ ...rewardForm, points: parseInt(e.target.value) })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Quantidade Disponível"
+                      value={rewardForm.quantity}
+                      onChange={(e) => setRewardForm({ ...rewardForm, quantity: parseInt(e.target.value) })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Descrição"
+                      value={rewardForm.description}
+                      onChange={(e) => setRewardForm({ ...rewardForm, description: e.target.value })}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button
+                    onClick={handleRewardRegistration}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700"
+                  >
+                    Cadastrar Prêmio
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rewards
+                    .filter(r => r.schoolId === currentUser.schoolId)
+                    .map(reward => (
+                      <div key={reward.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-bold text-gray-800">{reward.name}</h3>
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            reward.quantity > 0
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {reward.quantity > 0 ? 'Disponível' : 'Esgotado'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-3">{reward.description}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-indigo-600 font-bold">{reward.points} pts</span>
+                          <span className="text-sm text-gray-600">Qtd: {reward.quantity}</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'reports' && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-6">Relatórios</h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                        <Download className="w-6 h-6 text-indigo-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-800">Relatório de Presença</h3>
+                        <p className="text-sm text-gray-600">Exportar lista completa</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={exportAttendanceReport}
+                      className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+                    >
+                      Exportar CSV
+                    </button>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <Award className="w-6 h-6 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-800">Ranking de Pontos</h3>
+                        <p className="text-sm text-gray-600">Top alunos por pontos</p>
+                      </div>
+                    </div>
+                    <button className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                      Ver Ranking
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-4">Presenças Recentes</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Aluno</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Turma</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Data</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Hora</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {attendance.slice(-20).reverse().map(a => {
+                          const student = students.find(s => s.id === a.studentId);
+                          const classInfo = classes.find(c => c.id === a.classId);
+                          return (
+                            <tr key={a.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-800">{student?.name}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{classInfo?.name}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {new Date(a.timestamp).toLocaleDateString('pt-BR')}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {new Date(a.timestamp).toLocaleTimeString('pt-BR')}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                  Presente
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Renderização principal
+  return (
+    <div className="min-h-screen">
+      {currentView === 'login' && <LoginView />}
+      {currentView === 'register-school' && <RegisterSchoolView />}
+      {currentView === 'student-dashboard' && <StudentDashboard />}
+      {currentView === 'staff-dashboard' && <StaffDashboard />}
+    </div>
+  );
+};
+
+export default SchoolAttendanceSystem;
